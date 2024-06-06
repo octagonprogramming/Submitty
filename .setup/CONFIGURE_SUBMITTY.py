@@ -95,27 +95,40 @@ WEBSOCKET_PORT = args.websocket_port
 ##############################################################################
 
 # recommended names for special users & groups related to the SUBMITTY system
-PHP_USER = 'submitty_php'
-PHP_GROUP = 'submitty_php'
-CGI_USER = 'submitty_cgi'
-DAEMON_USER = 'submitty_daemon'
-DAEMON_GROUP = 'submitty_daemon'
+#PHP_USER = 'submitty_php'
+#PHP_GROUP = 'submitty_php'
+#CGI_USER = 'submitty_cgi'
+#DAEMON_USER = 'submitty_daemon'
+#DAEMON_GROUP = 'submitty_daemon'
+
+# Delete these
+PHP_USER = 'squid'
+PHP_GROUP = 'squid'
+CGI_USER = 'squid'
+DAEMON_USER = 'squid'
+DAEMON_GROUP = 'squid'
 
 if not args.worker:
     PHP_UID, PHP_GID = get_ids(PHP_USER)
     CGI_UID, CGI_GID = get_ids(CGI_USER)
     # System Groups
-    DAEMONPHP_GROUP = 'submitty_daemonphp'
+    #DAEMONPHP_GROUP = 'submitty_daemonphp'
+    #DELETE THIS
+    DAEMONPHP_GROUP = 'squid'
     try:
         grp.getgrnam(DAEMONPHP_GROUP)
     except KeyError:
         raise SystemExit("ERROR: Could not find group: " + DAEMONPHP_GROUP)
-    DAEMONCGI_GROUP = 'submitty_daemoncgi'
+    #DAEMONCGI_GROUP = 'submitty_daemoncgi'
+    #DELETE THIS
+    DAEMONCGI_GROUP = 'squid'
     try:
         grp.getgrnam(DAEMONCGI_GROUP)
     except KeyError:
         raise SystemExit("ERROR: Could not find group: " + DAEMONCGI_GROUP)
-    DAEMONPHPCGI_GROUP = 'submitty_daemonphpcgi'
+    #DAEMONPHPCGI_GROUP = 'submitty_daemonphpcgi'
+    #DELETE THIS
+    DAEMONPHPCGI_GROUP = 'squid'
     try:
         grp.getgrnam(DAEMONPHPCGI_GROUP)
     except KeyError:
@@ -123,7 +136,9 @@ if not args.worker:
 
 DAEMON_UID, DAEMON_GID = get_ids(DAEMON_USER)
 
-COURSE_BUILDERS_GROUP = 'submitty_course_builders'
+#COURSE_BUILDERS_GROUP = 'submitty_course_builders'
+#DELETE THIS
+COURSE_BUILDERS_GROUP = 'squid'
 try:
     grp.getgrnam(COURSE_BUILDERS_GROUP)
 except KeyError:
@@ -133,18 +148,18 @@ except KeyError:
 
 # This is the upper limit of the number of parallel grading threads on
 # this machine
-NUM_UNTRUSTED = 60
-
-FIRST_UNTRUSTED_UID, FIRST_UNTRUSTED_GID = get_ids('untrusted00')
-
+#NUM_UNTRUSTED = 60
+#
+#FIRST_UNTRUSTED_UID, FIRST_UNTRUSTED_GID = get_ids('untrusted00')
+#
 # confirm that the uid/gid of the untrusted users are sequential
-for i in range(1, NUM_UNTRUSTED):
-    untrusted_user = "untrusted{:0=2d}".format(i)
-    uid, gid = get_ids(untrusted_user)
-    if uid != FIRST_UNTRUSTED_UID + i:
-        raise SystemExit('CONFIGURATION ERROR: untrusted UID not sequential: ' + untrusted_user)
-    elif gid != FIRST_UNTRUSTED_GID + i:
-        raise SystemExit('CONFIGURATION ERROR: untrusted GID not sequential: ' + untrusted_user)
+#for i in range(1, NUM_UNTRUSTED):
+#    untrusted_user = "untrusted{:0=2d}".format(i)
+#    uid, gid = get_ids(untrusted_user)
+#    if uid != FIRST_UNTRUSTED_UID + i:
+#        raise SystemExit('CONFIGURATION ERROR: untrusted UID not sequential: ' + untrusted_user)
+#    elif gid != FIRST_UNTRUSTED_GID + i:
+#        raise SystemExit('CONFIGURATION ERROR: untrusted GID not sequential: ' + untrusted_user)
 
 ##############################################################################
 
@@ -185,7 +200,7 @@ defaults = {
     'authentication_method': 0,
     'institution_name' : '',
     'institution_homepage' : '',
-    'timezone' : tzlocal.get_localzone().zone,
+    'timezone' : tzlocal.get_localzone().key,
     'submitty_admin_username': '',
     'email_user': '',
     'email_password': '',
@@ -223,6 +238,10 @@ if os.path.isfile(AUTHENTICATION_JSON):
     with open(AUTHENTICATION_JSON) as authentication_file:
         loaded_defaults.update(json.load(authentication_file))
 
+pretty_json = json.dumps(loaded_defaults, indent=4)
+print(pretty_json)
+print()
+
 # no need to authenticate on a worker machine (no website)
 if not args.worker:
     if 'authentication_method' in loaded_defaults:
@@ -234,6 +253,11 @@ for key in defaults.keys():
     if key not in loaded_defaults:
         loaded_defaults[key] = defaults[key]
 defaults = loaded_defaults
+
+pretty_json = json.dumps(defaults, indent=4)
+print(pretty_json)
+print()
+exit()
 
 print("\nWelcome to the Submitty Homework Submission Server Configuration\n")
 DEBUGGING_ENABLED = args.debug is True
@@ -407,9 +431,15 @@ config['submitty_data_dir'] = SUBMITTY_DATA_DIR
 
 config['course_builders_group'] = COURSE_BUILDERS_GROUP
 
-config['num_untrusted'] = NUM_UNTRUSTED
-config['first_untrusted_uid'] = FIRST_UNTRUSTED_UID
-config['first_untrusted_gid'] = FIRST_UNTRUSTED_UID
+#config['num_untrusted'] = NUM_UNTRUSTED
+#config['first_untrusted_uid'] = FIRST_UNTRUSTED_UID
+#config['first_untrusted_gid'] = FIRST_UNTRUSTED_UID
+
+# Delete these
+config['num_untrusted'] = 1
+config['first_untrusted_uid'] = 2
+config['first_untrusted_gid'] = 3
+
 config['num_grading_scheduler_workers'] = NUM_GRADING_SCHEDULER_WORKERS
 
 
@@ -642,9 +672,15 @@ os.chmod(SUBMITTY_JSON, 0o444)
 
 config = OrderedDict()
 config['num_grading_scheduler_workers'] = NUM_GRADING_SCHEDULER_WORKERS
-config['num_untrusted'] = NUM_UNTRUSTED
-config['first_untrusted_uid'] = FIRST_UNTRUSTED_UID
-config['first_untrusted_gid'] = FIRST_UNTRUSTED_UID
+#config['num_untrusted'] = NUM_UNTRUSTED
+#config['first_untrusted_uid'] = FIRST_UNTRUSTED_UID
+#config['first_untrusted_gid'] = FIRST_UNTRUSTED_UID
+
+# Delete these
+config['num_untrusted'] = 1
+config['first_untrusted_uid'] = 2
+config['first_untrusted_gid'] = 3
+
 config['daemon_uid'] = DAEMON_UID
 config['daemon_gid'] = DAEMON_GID
 config['daemon_user'] = DAEMON_USER
