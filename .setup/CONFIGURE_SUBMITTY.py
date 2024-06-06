@@ -59,7 +59,7 @@ class StrToBoolAction(argparse.Action):
 if os.getuid() != 0:
     raise SystemExit('ERROR: This script must be run by root or sudo')
 
-
+# TODO - add new parser argument for configuration file paths
 parser = argparse.ArgumentParser(description='Submitty configuration script',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--debug', action='store_true', default=False, help='Configure Submitty to be in debug mode. '
