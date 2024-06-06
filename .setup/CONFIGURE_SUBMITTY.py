@@ -12,6 +12,9 @@ import string
 import tzlocal
 import tempfile
 
+#
+# sudo python .setup/CONFIGURE_SUBMITTY.py --install-dir=/mnt/c/Users/micha/Documents/Git/tmp-configs --data-dir=/mnt/c/Users/micha/Documents/Git/tmp-data
+#
 
 def get_uid(user):
     return pwd.getpwnam(user).pw_uid
@@ -108,6 +111,11 @@ CGI_USER = 'squid'
 DAEMON_USER = 'squid'
 DAEMON_GROUP = 'squid'
 
+# TODO - decide if we still want to use these if doing config install
+# the daemon group is still used later on while not always being set in the config
+# DAEMON_GROUP is used when it is worker and when not worker
+# DAEMON_GROUP, PHP_GROUP IS USED WITHOUT CONFIRMING ITS EXISTENCE NOR SAVING THEM
+
 if not args.worker:
     PHP_UID, PHP_GID = get_ids(PHP_USER)
     CGI_UID, CGI_GID = get_ids(CGI_USER)
@@ -134,6 +142,7 @@ if not args.worker:
     except KeyError:
         raise SystemExit("ERROR: Could not find group: " + DAEMONPHPCGI_GROUP)
 
+# TODO confirm this exists before using it??
 DAEMON_UID, DAEMON_GID = get_ids(DAEMON_USER)
 
 #COURSE_BUILDERS_GROUP = 'submitty_course_builders'
@@ -146,6 +155,7 @@ except KeyError:
 
 ##############################################################################
 
+# TODO - uncomment this
 # This is the upper limit of the number of parallel grading threads on
 # this machine
 #NUM_UNTRUSTED = 60
@@ -223,40 +233,63 @@ defaults = {
     }
 }
 
-loaded_defaults = {}
+#SAMPLE COMMAND
+#sudo python .setup/CONFIGURE_SUBMITTY.py --install-dir=/mnt/c/Users/micha/Documents/Git/tmp-configs --data-dir=/mnt/c/Users/micha/Documents/Git/tmp-data
+
+
+# This is loading the defaults from the json files. If the file does not exist, it will use the defaults
+# defined above. If the file does exist, it will overwrite the defaults with the values in the file.
+
+# these new default values will be used below when prompting the user for input
+
+# I am changing this behavior to PRESERVE GIVEN DEFAULTS (aka defaults SHOULD BE DEFAULT)
+# The loaded configs will be processed differently (seperate user input based install and config based install)
+
+# TODO - figure out logically how to seperate input vs config based install
+# TODO - once these are seperated logically decide how to find the path
+
+loaded_config = {}
 if os.path.isfile(CONFIGURATION_JSON):
     with open(CONFIGURATION_JSON) as conf_file:
-        loaded_defaults = json.load(conf_file)
+        loaded_config = json.load(conf_file)
 if os.path.isfile(SUBMITTY_ADMIN_JSON):
     with open(SUBMITTY_ADMIN_JSON) as submitty_admin_file:
-        loaded_defaults.update(json.load(submitty_admin_file))
+        loaded_config.update(json.load(submitty_admin_file))
 if os.path.isfile(EMAIL_JSON):
     with open(EMAIL_JSON) as email_file:
-        loaded_defaults.update(json.load(email_file))
-
+        loaded_config.update(json.load(email_file))
 if os.path.isfile(AUTHENTICATION_JSON):
     with open(AUTHENTICATION_JSON) as authentication_file:
-        loaded_defaults.update(json.load(authentication_file))
+        loaded_config.update(json.load(authentication_file))
 
-pretty_json = json.dumps(loaded_defaults, indent=4)
+# Check if we got anything from the loaded config
+config_install = bool(loaded_config)
+
+# TODO - delete this
+pretty_json = json.dumps(loaded_config, indent=4)
 print(pretty_json)
 print()
+
+# loaded_config[''] if config_install else 
+
+#loaded_config[''] if config_install else DAEMON_GROUP
+
+#print(DAEMON_GROUP if args.worker else (loaded_config['daemonphp_group'] if config_install else DAEMONPHP_GROUP))
 
 # no need to authenticate on a worker machine (no website)
 if not args.worker:
-    if 'authentication_method' in loaded_defaults:
-        loaded_defaults['authentication_method'] = authentication_methods.index(loaded_defaults['authentication_method']) + 1
+    if 'authentication_method' in loaded_config:
+        loaded_config['authentication_method'] = authentication_methods.index(loaded_config['authentication_method']) + 1
 
 # grab anything not loaded in (useful for backwards compatibility if a new default is added that
 # is not in an existing config file.)
-for key in defaults.keys():
-    if key not in loaded_defaults:
-        loaded_defaults[key] = defaults[key]
-defaults = loaded_defaults
+#for key in defaults.keys():
+#    if key not in loaded_config:
+#        loaded_config[key] = defaults[key]
 
-pretty_json = json.dumps(defaults, indent=4)
-print(pretty_json)
-print()
+# TODO - delete this
+# NO DONT DO THIS
+#defaults = loaded_config
 exit()
 
 print("\nWelcome to the Submitty Homework Submission Server Configuration\n")
@@ -425,61 +458,56 @@ os.chmod(SETUP_INSTALL_DIR, 0o751)
 
 config = OrderedDict()
 
-config['submitty_install_dir'] = SUBMITTY_INSTALL_DIR
-config['submitty_repository'] = SUBMITTY_REPOSITORY
-config['submitty_data_dir'] = SUBMITTY_DATA_DIR
+config['submitty_install_dir'] = loaded_config['submitty_install_dir'] if config_install else SUBMITTY_INSTALL_DIR
+config['submitty_repository'] = loaded_config['submitty_repository'] if config_install else SUBMITTY_REPOSITORY
+config['submitty_data_dir'] = loaded_config['submitty_data_dir'] if config_install else SUBMITTY_DATA_DIR
 
-config['course_builders_group'] = COURSE_BUILDERS_GROUP
+config['course_builders_group'] = loaded_config['course_builders_group'] if config_install else COURSE_BUILDERS_GROUP
 
-#config['num_untrusted'] = NUM_UNTRUSTED
-#config['first_untrusted_uid'] = FIRST_UNTRUSTED_UID
-#config['first_untrusted_gid'] = FIRST_UNTRUSTED_UID
+config['num_untrusted'] = loaded_config['num_untrusted'] if config_install else NUM_UNTRUSTED
+config['first_untrusted_uid'] = loaded_config['first_untrusted_uid'] if config_install else FIRST_UNTRUSTED_UID
+config['first_untrusted_gid'] = loaded_config['first_untrusted_gid'] if config_install else FIRST_UNTRUSTED_UID
 
-# Delete these
-config['num_untrusted'] = 1
-config['first_untrusted_uid'] = 2
-config['first_untrusted_gid'] = 3
-
-config['num_grading_scheduler_workers'] = NUM_GRADING_SCHEDULER_WORKERS
+config['num_grading_scheduler_workers'] = loaded_config['num_grading_scheduler_workers'] if config_install else NUM_GRADING_SCHEDULER_WORKERS
 
 
-config['daemon_user'] = DAEMON_USER
-config['daemon_uid'] = DAEMON_UID
-config['daemon_gid'] = DAEMON_GID
+config['daemon_user'] = loaded_config['daemon_user'] if config_install else DAEMON_USER
+config['daemon_uid'] = loaded_config['daemon_uid'] if config_install else DAEMON_UID
+config['daemon_gid'] = loaded_config['daemon_gid'] if config_install else DAEMON_GID
 
 if args.worker:
-    config['supervisor_user'] = SUPERVISOR_USER
+    config['supervisor_user'] = loaded_config['supervisor_user'] if config_install else SUPERVISOR_USER
 else:
-    config['php_user'] = PHP_USER
-    config['cgi_user'] = CGI_USER
-    config['daemonphp_group'] = DAEMONPHP_GROUP
-    config['daemoncgi_group'] = DAEMONCGI_GROUP
-    config['daemonphpcgi_group'] = DAEMONPHPCGI_GROUP
-    config['php_uid'] = PHP_UID
-    config['php_gid'] = PHP_GID
+    config['php_user'] = loaded_config['php_user'] if config_install else PHP_USER
+    config['cgi_user'] = loaded_config['cgi_user'] if config_install else CGI_USER
+    config['daemonphp_group'] = loaded_config['daemonphp_group'] if config_install else DAEMONPHP_GROUP
+    config['daemoncgi_group'] = loaded_config['daemoncgi_group'] if config_install else DAEMONCGI_GROUP
+    config['daemonphpcgi_group'] = loaded_config['daemonphpcgi_group'] if config_install else DAEMONPHPCGI_GROUP
+    config['php_uid'] = loaded_config['php_uid'] if config_install else PHP_UID
+    config['php_gid'] = loaded_config['php_gid'] if config_install else PHP_GID
 
-    config['database_host'] = DATABASE_HOST
-    config['database_port'] = DATABASE_PORT
-    config['database_user'] = DATABASE_USER
-    config['database_password'] = DATABASE_PASS
-    config['database_course_user'] = DATABASE_COURSE_USER
-    config['database_course_password'] = DATABASE_COURSE_PASSWORD
-    config['timezone'] = TIMEZONE
-    config['default_locale'] = DEFAULT_LOCALE
+    config['database_host'] = loaded_config['database_host'] if config_install else DATABASE_HOST
+    config['database_port'] = loaded_config['database_port'] if config_install else DATABASE_PORT
+    config['database_user'] = loaded_config['database_user'] if config_install else DATABASE_USER
+    config['database_password'] = loaded_config['database_password'] if config_install else DATABASE_PASS
+    config['database_course_user'] = loaded_config['database_course_user'] if config_install else DATABASE_COURSE_USER
+    config['database_course_password'] = loaded_config['database_course_password'] if config_install else DATABASE_COURSE_PASSWORD
+    config['timezone'] = loaded_config['timezone'] if config_install else TIMEZONE
+    config['default_locale'] = loaded_config['default_locale'] if config_install else DEFAULT_LOCALE
 
-    config['authentication_method'] = AUTHENTICATION_METHOD
-    config['vcs_url'] = VCS_URL
-    config['submission_url'] = SUBMISSION_URL
-    config['cgi_url'] = CGI_URL
-    config['websocket_port'] = WEBSOCKET_PORT
+    config['authentication_method'] = loaded_config['authentication_method'] if config_install else AUTHENTICATION_METHOD
+    config['vcs_url'] = loaded_config['vcs_url'] if config_install else VCS_URL
+    config['submission_url'] = loaded_config['submission_url'] if config_install else SUBMISSION_URL
+    config['cgi_url'] = loaded_config['cgi_url'] if config_install else CGI_URL
+    config['websocket_port'] = loaded_config['websocket_port'] if config_install else WEBSOCKET_PORT
 
-    config['institution_name'] = INSTITUTION_NAME
-    config['institution_homepage'] = INSTITUTION_HOMEPAGE
-    config['debugging_enabled'] = DEBUGGING_ENABLED
+    config['institution_name'] = loaded_config['institution_name'] if config_install else INSTITUTION_NAME
+    config['institution_homepage'] = loaded_config['institution_homepage'] if config_install else INSTITUTION_HOMEPAGE
+    config['debugging_enabled'] = loaded_config['debugging_enabled'] if config_install else DEBUGGING_ENABLED
 
 # site_log_path is a holdover name. This could more accurately be called the "log_path"
-config['site_log_path'] = TAGRADING_LOG_PATH
-config['autograding_log_path'] = AUTOGRADING_LOG_PATH
+config['site_log_path'] = loaded_config['site_log_path'] if config_install else TAGRADING_LOG_PATH
+config['autograding_log_path'] = loaded_config['autograding_log_path'] if config_install else AUTOGRADING_LOG_PATH
 
 if args.worker:
     config['worker'] = 1
@@ -562,7 +590,7 @@ if not args.worker:
                 "capabilities": capabilities,
                 "address": "localhost",
                 "username": "",
-                "num_autograding_workers": NUM_GRADING_SCHEDULER_WORKERS,
+                "num_autograding_workers": loaded_config['num_autograding_workers'] if config_install else NUM_GRADING_SCHEDULER_WORKERS,
                 "enabled" : True
             }
         }
@@ -577,7 +605,7 @@ if not args.worker:
                     "capabilities": capabilities,
                     "address": data["ip_addr"],
                     "username": "submitty",
-                    "num_autograding_workers": NUM_GRADING_SCHEDULER_WORKERS,
+                    "num_autograding_workers": loaded_config['num_autograding_workers'] if config_install else NUM_GRADING_SCHEDULER_WORKERS,
                     "enabled": True
                 }
 
@@ -609,14 +637,14 @@ if not args.worker:
 
 if not args.worker:
     config = OrderedDict()
-    config['authentication_method'] = AUTHENTICATION_METHOD
-    config['database_host'] = DATABASE_HOST
-    config['database_port'] = DATABASE_PORT
-    config['database_user'] = DATABASE_USER
-    config['database_password'] = DATABASE_PASS
-    config['database_course_user'] = DATABASE_COURSE_USER
-    config['database_course_password'] = DATABASE_COURSE_PASSWORD
-    config['debugging_enabled'] = DEBUGGING_ENABLED
+    config['authentication_method'] = loaded_config['authentication_method'] if config_install else AUTHENTICATION_METHOD
+    config['database_host'] = loaded_config['database_host'] if config_install else DATABASE_HOST
+    config['database_port'] = loaded_config['database_port'] if config_install else DATABASE_PORT
+    config['database_user'] = loaded_config['database_user'] if config_install else DATABASE_USER
+    config['database_password'] = loaded_config['database_password'] if config_install else DATABASE_PASS
+    config['database_course_user'] = loaded_config['database_course_user'] if config_install else DATABASE_COURSE_USER
+    config['database_course_password'] = loaded_config['database_course_password'] if config_install else DATABASE_COURSE_PASSWORD
+    config['debugging_enabled'] = loaded_config['debugging_enabled'] if config_install else DEBUGGING_ENABLED
 
     with open(DATABASE_JSON, 'w') as json_file:
         json.dump(config, json_file, indent=2)
@@ -627,9 +655,9 @@ if not args.worker:
 # Write authentication json
 if not args.worker:
     config = OrderedDict()
-    config['authentication_method'] = AUTHENTICATION_METHOD
-    config['ldap_options'] = LDAP_OPTIONS
-    config['saml_options'] = SAML_OPTIONS
+    config['authentication_method'] = loaded_config['authentication_method'] if config_install else AUTHENTICATION_METHOD
+    config['ldap_options'] = loaded_config['ldap_options'] if config_install else LDAP_OPTIONS
+    config['saml_options'] = loaded_config['saml_options'] if config_install else SAML_OPTIONS
 
     with open(AUTHENTICATION_JSON, 'w') as json_file:
         json.dump(config, json_file, indent=4)
@@ -640,25 +668,25 @@ if not args.worker:
 # Write submitty json
 
 config = OrderedDict()
-config['submitty_install_dir'] = SUBMITTY_INSTALL_DIR
-config['submitty_repository'] = SUBMITTY_REPOSITORY
-config['submitty_data_dir'] = SUBMITTY_DATA_DIR
-config['autograding_log_path'] = AUTOGRADING_LOG_PATH
+config['submitty_install_dir'] = loaded_config['submitty_install_dir'] if config_install else SUBMITTY_INSTALL_DIR
+config['submitty_repository'] = loaded_config['submitty_repository'] if config_install else SUBMITTY_REPOSITORY
+config['submitty_data_dir'] = loaded_config['submitty_data_dir'] if config_install else SUBMITTY_DATA_DIR
+config['autograding_log_path'] = loaded_config['autograding_log_path'] if config_install else AUTOGRADING_LOG_PATH
 if not args.worker:
-    config['sys_admin_email'] = SYS_ADMIN_EMAIL
-    config['sys_admin_url'] = SYS_ADMIN_URL
+    config['sys_admin_email'] = loaded_config['sys_admin_email'] if config_install else SYS_ADMIN_EMAIL
+    config['sys_admin_url'] = loaded_config['sys_admin_url'] if config_install else SYS_ADMIN_URL
 # site_log_path is a holdover name. This could more accurately be called the "log_path"
-config['site_log_path'] = TAGRADING_LOG_PATH
+config['site_log_path'] = loaded_config['site_log_path'] if config_install else TAGRADING_LOG_PATH
 
 if not args.worker:
-    config['submission_url'] = SUBMISSION_URL
-    config['vcs_url'] = VCS_URL
-    config['cgi_url'] = CGI_URL
-    config['websocket_port'] = WEBSOCKET_PORT
-    config['institution_name'] = INSTITUTION_NAME
-    config['institution_homepage'] = INSTITUTION_HOMEPAGE
-    config['timezone'] = TIMEZONE
-    config['default_locale'] = DEFAULT_LOCALE
+    config['submission_url'] = loaded_config['submission_url'] if config_install else SUBMISSION_URL
+    config['vcs_url'] = loaded_config['vcs_url'] if config_install else VCS_URL
+    config['cgi_url'] = loaded_config['cgi_url'] if config_install else CGI_URL
+    config['websocket_port'] = loaded_config['websocket_port'] if config_install else WEBSOCKET_PORT
+    config['institution_name'] = loaded_config['institution_name'] if config_install else INSTITUTION_NAME
+    config['institution_homepage'] = loaded_config['institution_homepage'] if config_install else INSTITUTION_HOMEPAGE
+    config['timezone'] = loaded_config['timezone'] if config_install else TIMEZONE
+    config['default_locale'] = loaded_config['default_locale'] if config_install else DEFAULT_LOCALE
     config['duck_special_effects'] = False
 
 config['worker'] = True if args.worker == 1 else False
@@ -671,34 +699,30 @@ os.chmod(SUBMITTY_JSON, 0o444)
 # Write users json
 
 config = OrderedDict()
-config['num_grading_scheduler_workers'] = NUM_GRADING_SCHEDULER_WORKERS
-#config['num_untrusted'] = NUM_UNTRUSTED
-#config['first_untrusted_uid'] = FIRST_UNTRUSTED_UID
-#config['first_untrusted_gid'] = FIRST_UNTRUSTED_UID
+config['num_grading_scheduler_workers'] = loaded_config['num_grading_scheduler_workers'] if config_install else NUM_GRADING_SCHEDULER_WORKERS
+config['num_untrusted'] = loaded_config['num_untrusted'] if config_install else NUM_UNTRUSTED
+config['first_untrusted_uid'] = loaded_config['first_untrusted_uid'] if config_install else FIRST_UNTRUSTED_UID
+config['first_untrusted_gid'] = loaded_config['first_untrusted_gid'] if config_install else FIRST_UNTRUSTED_UID
 
-# Delete these
-config['num_untrusted'] = 1
-config['first_untrusted_uid'] = 2
-config['first_untrusted_gid'] = 3
-
-config['daemon_uid'] = DAEMON_UID
-config['daemon_gid'] = DAEMON_GID
-config['daemon_user'] = DAEMON_USER
-config['course_builders_group'] = COURSE_BUILDERS_GROUP
+config['daemon_uid'] = loaded_config['daemon_uid'] if config_install else DAEMON_UID
+config['daemon_gid'] = loaded_config['daemon_gid'] if config_install else DAEMON_GID
+config['daemon_user'] = loaded_config['daemon_user'] if config_install else DAEMON_USER
+config['course_builders_group'] = loaded_config['course_builders_group'] if config_install else COURSE_BUILDERS_GROUP
 
 if not args.worker:
-    config['php_uid'] = PHP_UID
-    config['php_gid'] = PHP_GID
-    config['php_user'] = PHP_USER
-    config['cgi_user'] = CGI_USER
-    config['daemonphp_group'] = DAEMONPHP_GROUP
-    config['daemoncgi_group'] = DAEMONCGI_GROUP
-    config['daemonphpcgi_group'] = DAEMONPHPCGI_GROUP
+    config['php_uid'] = loaded_config['php_uid'] if config_install else PHP_UID
+    config['php_gid'] = loaded_config['php_gid'] if config_install else PHP_GID
+    config['php_user'] = loaded_config['php_user'] if config_install else PHP_USER
+    config['cgi_user'] = loaded_config['cgi_user'] if config_install else CGI_USER
+    config['daemonphp_group'] = loaded_config['daemonphp_group'] if config_install else DAEMONPHP_GROUP
+    config['daemoncgi_group'] = loaded_config['daemoncgi_group'] if config_install else DAEMONCGI_GROUP
+    config['daemonphpcgi_group'] = loaded_config['daemonphpcgi_group'] if config_install else DAEMONPHPCGI_GROUP
 else:
-    config['supervisor_user'] = SUPERVISOR_USER
+    config['supervisor_user'] = loaded_config['supervisor_user'] if config_install else SUPERVISOR_USER
 
 with open(SUBMITTY_USERS_JSON, 'w') as json_file:
     json.dump(config, json_file, indent=2)
+# TODO - figure out how to handle this (existence not confirmed)
 shutil.chown(SUBMITTY_USERS_JSON, 'root', DAEMON_GROUP if args.worker else DAEMONPHP_GROUP)
 
 os.chmod(SUBMITTY_USERS_JSON, 0o440)
@@ -712,6 +736,7 @@ if not args.worker:
     config['session'] = ''.join(secrets.choice(characters) for _ in range(64))
     with open(SECRETS_PHP_JSON, 'w') as json_file:
         json.dump(config, json_file, indent=2)
+    # TODO - figure out how to handle this (existence not confirmed)
     shutil.chown(SECRETS_PHP_JSON, 'root', PHP_GROUP)
     os.chmod(SECRETS_PHP_JSON, 0o440)
 
@@ -720,10 +745,11 @@ if not args.worker:
 
 if not args.worker:
     config = OrderedDict()
-    config['submitty_admin_username'] = SUBMITTY_ADMIN_USERNAME
+    config['submitty_admin_username'] = loaded_config['submitty_admin_username'] if config_install else SUBMITTY_ADMIN_USERNAME
 
     with open(SUBMITTY_ADMIN_JSON, 'w') as json_file:
         json.dump(config, json_file, indent=2)
+    # TODO - figure out how to handle this
     shutil.chown(SUBMITTY_ADMIN_JSON, 'root', DAEMON_GROUP)
     os.chmod(SUBMITTY_ADMIN_JSON, 0o440)
 
@@ -732,14 +758,14 @@ if not args.worker:
 
 if not args.worker:
     config = OrderedDict()
-    config['email_enabled'] = EMAIL_ENABLED
-    config['email_user'] = EMAIL_USER
-    config['email_password'] = EMAIL_PASSWORD
-    config['email_sender'] = EMAIL_SENDER
-    config['email_reply_to'] = EMAIL_REPLY_TO
-    config['email_server_hostname'] = EMAIL_SERVER_HOSTNAME
-    config['email_server_port'] = EMAIL_SERVER_PORT
-    config['email_internal_domain'] = EMAIL_INTERNAL_DOMAIN
+    config['email_enabled'] = loaded_config['email_enabled'] if config_install else EMAIL_ENABLED
+    config['email_user'] = loaded_config['email_user'] if config_install else EMAIL_USER
+    config['email_password'] = loaded_config['email_password'] if config_install else EMAIL_PASSWORD
+    config['email_sender'] = loaded_config['email_sender'] if config_install else EMAIL_SENDER
+    config['email_reply_to'] = loaded_config['email_reply_to'] if config_install else EMAIL_REPLY_TO
+    config['email_server_hostname'] = loaded_config['email_server_hostname'] if config_install else EMAIL_SERVER_HOSTNAME
+    config['email_server_port'] = loaded_config['email_server_port'] if config_install else EMAIL_SERVER_PORT
+    config['email_internal_domain'] = loaded_config['email_internal_domain'] if config_install else EMAIL_INTERNAL_DOMAIN
 
     with open(EMAIL_JSON, 'w') as json_file:
         json.dump(config, json_file, indent=2)
